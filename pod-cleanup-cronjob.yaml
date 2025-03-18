@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: pod-cleanup-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: pod-cleanup-role
+  namespace: default
+rules:
+- apiGroups: [""]
+  resources: ["pods"]
+  verbs: ["get", "list", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: pod-cleanup-rolebinding
+  namespace: default
+subjects:
+- kind: ServiceAccount
+  name: pod-cleanup-sa
+  namespace: default
+roleRef:
+  kind: Role
+  name: pod-cleanup-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: cleanup-error-pods
+  namespace: default
+spec:
+  schedule: "*/5 * * * *" 
+  jobTemplate:
+    spec:
+      template:
+        spec:
+          serviceAccountName: pod-cleanup-sa
+          containers:
+          - name: cleanup
+            image: bitnami/kubectl:latest
+            command:
+            - /bin/sh
+            - -c
+            - |
+              # 删除 Unknown 状态的 Pod
+              kubectl get pods -A -o json | \
+              jq -r '.items[] | select(.status.phase == "Unknown") | "kubectl delete pod \(.metadata.name) -n \(.metadata.namespace)"' | bash
+
+              # 删除返回非零退出码 (Failed 状态) 或 OOMKilled 的 Pod
+              kubectl get pods -A -o json | \
+              jq -r '.items[] | select(
+                (.status.phase == "Failed") or 
+                (.status.containerStatuses[]? | .state.terminated?.reason == "OOMKilled")
+              ) | "kubectl delete pod \(.metadata.name) -n \(.metadata.namespace)"' | bash
+          restartPolicy: OnFailure
