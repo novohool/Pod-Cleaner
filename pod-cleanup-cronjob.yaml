@@ -11,6 +11,24 @@ metadata:
   namespace: default
 rules:
 - apiGroups: [""]
+  resources: ["nodes","services","namespaces","configmaps","endpoints","events","serviceaccounts"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs","cronjobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.istio.io"]
+  resources: ["gateways","virtualservices"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "replicasets","daemonsets", "statefulsets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources: ["poddisruptionbudgets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
   resources: ["pods"]
   verbs: ["get", "list", "delete"]
 ---
@@ -34,7 +52,7 @@ metadata:
   name: cleanup-error-pods
   namespace: default
 spec:
-  schedule: "*/5 * * * *" 
+  schedule: "0 */1 * * *" 
   jobTemplate:
     spec:
       template:
